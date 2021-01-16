@@ -1,11 +1,13 @@
 import React from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
-import { Icon } from "semantic-ui-react";
+import { Button, Icon } from "semantic-ui-react";
 
-import { useStateValue, setPatient } from "../state";
+import { useStateValue, setPatient, setPatientList, addEntry } from "../state";
 import { Diagnosis, Discharge, Entry, Gender, Patient, SickLeave } from "../types";
 import { apiBaseUrl } from "../constants";
+import AddEntryModal from "../AddEntryModal";
+import { EntryFormValues } from "../AddEntryModal/AddEntryForm";
 
 const style = {
   fontSize: 16,
@@ -141,8 +143,65 @@ const PatientPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   //const [{ patient }, dispatch] = useStateValue();
   //const [{ patients }, dispatch] = useStateValue();
-  const [{ patient }, dispatch ] = useStateValue();
+  const [{ patient, patients }, dispatch ] = useStateValue();
+  console.log(patients);
   //const selectedPatient = patients[Number({ id })];
+  const [modalOpen, setModalOpen] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string | undefined>();
+
+  const openModal = (): void => setModalOpen(true);
+
+  const closeModal = (): void => {
+    setModalOpen(false);
+    setError(undefined);
+  };
+
+  const submitNewEntry = async (values: EntryFormValues) => {
+    try {
+      const { data: newEntry } = await axios.post<Entry>(
+        `${apiBaseUrl}/patients/${id}/entries`,
+        values
+      );
+      console.log(newEntry);
+      
+      //dispatch({ type: "ADD_ENTRY", payload: patient });
+      dispatch(addEntry(patient));
+      window.location.reload();
+      try {
+        const { data: patientListFromApi } = await axios.get<Patient[]>(
+          `${apiBaseUrl}/patients`
+        );
+        console.log(patientListFromApi);
+        //dispatch({ type: "SET_PATIENT_LIST", payload: patientListFromApi });
+        dispatch(setPatientList(patientListFromApi));
+      } catch (e) {
+        console.error(e);
+      }
+    
+      closeModal();
+    } catch (e) {
+      console.error(e.response.data);
+      setError(e.response.data.error);
+    }
+  };
+
+  React.useEffect(() => {
+    const fetchPatientList = async () => {
+      try {
+        const { data: patientListFromApi } = await axios.get<Patient[]>(
+          `${apiBaseUrl}/patients`
+        );
+        console.log(patientListFromApi);
+        //dispatch({ type: "SET_PATIENT_LIST", payload: patientListFromApi });
+        dispatch(setPatientList(patientListFromApi));
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchPatientList();
+  }, [dispatch]);
+
+
   React.useEffect(() => {
     const fetchPatient = async () => {
       try {
@@ -158,6 +217,8 @@ const PatientPage: React.FC = () => {
     fetchPatient();
     // eslint-disable-next-line
   }, [dispatch]);
+
+  
 
   //dispatch({ type: "SET_PATIENT", payload: selectedPatient });
   console.log("Statessa:");
@@ -198,6 +259,13 @@ const PatientPage: React.FC = () => {
         </div>
         
       )}
+      <AddEntryModal
+        modalOpen={modalOpen}
+        onSubmit={submitNewEntry}
+        error={error}
+        onClose={closeModal}
+      />
+      <Button onClick={() => openModal()}>Add New Entry</Button>
     </div>
     
   );
