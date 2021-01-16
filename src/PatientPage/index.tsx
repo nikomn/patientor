@@ -4,15 +4,144 @@ import { useParams } from "react-router-dom";
 import { Icon } from "semantic-ui-react";
 
 import { useStateValue, setPatient } from "../state";
-import { Gender, Patient } from "../types";
+import { Diagnosis, Discharge, Entry, Gender, Patient, SickLeave } from "../types";
 import { apiBaseUrl } from "../constants";
+
+const style = {
+  fontSize: 16,
+  borderStyle: 'solid',
+  borderRadius: 5,
+  padding: 10,
+  marginBottom: 10,
+};
+
+
+interface DiagnoseProps {
+  diagnosis?: Array<Diagnosis['code']>;
+}
+
+interface HealthCheckEntryProps {
+  healthCheckRating: number;
+  description: string;
+  date: string;
+  diagnosisCodes?: Array<Diagnosis['code']>;
+}
+
+interface HospitalEntryProps {
+  description: string;
+  date: string;
+  discharge: Discharge;
+  diagnosisCodes?: Array<Diagnosis['code']>;
+}
+
+interface OccupationalHealtcheckEntryProps {
+  employerName: string;
+  description: string;
+  date: string;
+  sickLeave?: SickLeave;
+  diagnosisCodes?: Array<Diagnosis['code']>;
+}
+
+const HospitalEntry: React.FC<HospitalEntryProps> = (props) => {
+  return (
+        <div style={style}>
+          <h4>{props.date} <Icon name="hospital" size='big' /></h4>
+          <div>{props.description}</div>
+          <DiagnoseList diagnosis={props?.diagnosisCodes}/>
+          <div>Discharge: {props.discharge.date}, {props.discharge.criteria}</div>
+        </div>
+        );
+};
+
+const OccupationalHealtcheckEntry: React.FC<OccupationalHealtcheckEntryProps> = (props) => {
+  const leave = (props?.sickLeave) ? `Sickleave: ${props?.sickLeave?.startDate} - ${props?.sickLeave?.endDate}` : ""; 
+  return (
+    <div style={style}>
+      <h4>{props.date} <Icon name="stethoscope" size='big' /> {props.employerName}</h4>
+      <div>{props.description}</div>
+      <DiagnoseList diagnosis={props?.diagnosisCodes}/>
+      <div>{leave}</div>
+      
+    </div>
+    );
+};
+
+const HealthCheckEntry: React.FC<HealthCheckEntryProps> = (props) => {
+  //const entryData = props.data.hasOwnProperty('healthCheckRating');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let heartColor = "green" as any;
+  if (props.healthCheckRating === 1) {
+    heartColor = "yellow";
+  }
+  if (props.healthCheckRating === 2) {
+    heartColor = "orange";
+  }
+  if (props.healthCheckRating === 3) {
+    heartColor = "red";
+  }
+  return (
+    <div style={style}>
+      <h4>{props.date} <Icon name="doctor" size='big' /></h4>
+      <div>{props.description}</div>
+      <Icon name="heart" color={heartColor} />
+      <DiagnoseList diagnosis={props?.diagnosisCodes}/>
+    </div>
+    );
+};
+
+const DiagnoseList: React.FC<DiagnoseProps> = (props) => {
+  const [{ diagnoses } ] = useStateValue();
+  return (
+    <ul>
+          {props.diagnosis?.map(code =>
+            <li key={code}>
+              {code} {diagnoses[code]?.name}
+            </li>)}
+        </ul>
+  );
+};
+
+const assertNever = (value: never): never => {
+  throw new Error(
+    `Unhandled discriminated union member: ${JSON.stringify(value)}`
+  );
+};
+
+const EntryDetails: React.FC<{ entry: Entry }> = ({ entry }) => {
+  switch (entry.type) {
+    case "HealthCheck":
+      return <HealthCheckEntry
+                date={entry.date}
+                description={entry.description}
+                healthCheckRating={entry.healthCheckRating}
+                diagnosisCodes={entry?.diagnosisCodes}
+                />;
+    case "Hospital":
+      return <HospitalEntry 
+                date={entry.date}
+                description={entry.description}
+                discharge={entry.discharge}
+                diagnosisCodes={entry?.diagnosisCodes}
+              />;
+    case "OccupationalHealthcare":
+      return <OccupationalHealtcheckEntry 
+                date={entry.date}
+                description={entry.description}
+                employerName={entry.employerName}
+                sickLeave={entry?.sickLeave} 
+                diagnosisCodes={entry?.diagnosisCodes}
+                />;
+    default:
+      return assertNever(entry);
+  }
+};
 
 
 const PatientPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   //const [{ patient }, dispatch] = useStateValue();
   //const [{ patients }, dispatch] = useStateValue();
-  const [{ patient, diagnoses }, dispatch ] = useStateValue();
+  const [{ patient }, dispatch ] = useStateValue();
   //const selectedPatient = patients[Number({ id })];
   React.useEffect(() => {
     const fetchPatient = async () => {
@@ -58,18 +187,19 @@ const PatientPage: React.FC = () => {
       <h4>entries</h4>
       {patient?.entries.map(entry => 
         <div key={entry.id}>
-          {entry.date} {entry.description}
+          {/* {entry.date} {entry.description}
           <ul>
           {entry?.diagnosisCodes?.map(code =>
             <li key={code}>
               {code} {diagnoses[code]?.name}
             </li>)}
-        </ul>
+        </ul> */}
+        <EntryDetails entry={entry} />
         </div>
         
-
       )}
     </div>
+    
   );
 };
 
